@@ -10,8 +10,8 @@ void swap (int *a,int *b ){
 int main()
 {
     int a,b;
-    a=10;
-    b=20;
+    printf("请输入两个整数：");
+    scanf("%d %d",&a,&b);
         printf("before swap,a=%d,b=%d\n",a,b);
     swap(&a,&b);
         printf("after swpa,a=%d,b=%d\n",a,b);
