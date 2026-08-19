@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#120c17" />
+    <meta
+      name="description"
+      content="一朵用 HTML 与 CSS 绘制的玫瑰花。点击花朵，让它慢慢绽放。"
+    />
+    <title>给你一朵玫瑰</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #fff6f5;
+        --muted: #c8afb9;
+        --wine: #762341;
+        --rose: #d84d72;
+        --rose-deep: #7c183c;
+        --leaf: #5d9a79;
+        --leaf-deep: #225448;
+        --gold: #f6c58d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 320px;
+        background: #120c17;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        overflow-x: hidden;
+        color: var(--ink);
+        font-family: Georgia, "Times New Roman", "Noto Serif SC", serif;
+        background:
+          radial-gradient(circle at 50% 38%, rgba(135, 42, 76, 0.25), transparent 26rem),
+          radial-gradient(circle at 8% 8%, rgba(246, 197, 141, 0.08), transparent 18rem),
+          linear-gradient(135deg, #120c17 0%, #211321 52%, #100b15 100%);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .page {
+        position: relative;
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 32px 20px;
+        isolation: isolate;
+      }
+
+      .page::before,
+      .page::after {
+        position: absolute;
+        z-index: -1;
+        width: 1px;
+        height: 1px;
+        content: "";
+        border-radius: 50%;
+        box-shadow:
+          7vw 17vh 0 1px rgba(255, 233, 216, 0.45),
+          14vw 66vh 0 1px rgba(255, 233, 216, 0.25),
+          86vw 20vh 0 1px rgba(255, 233, 216, 0.4),
+          77vw 72vh 0 1px rgba(255, 233, 216, 0.32),
+          61vw 10vh 0 1px rgba(255, 233, 216, 0.2),
+          38vw 84vh 0 1px rgba(255, 233, 216, 0.25);
+      }
+
+      .page::before {
+        top: 0;
+        left: 0;
+      }
+
+      .page::after {
+        right: 0;
+        bottom: 0;
+        transform: scale(0.7);
+        opacity: 0.75;
+      }
+
+      .card {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+        width: min(1040px, 100%);
+        min-height: 650px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 228, 220, 0.18);
+        border-radius: 28px;
+        background: rgba(29, 17, 30, 0.78);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(18px);
+      }
+
+      .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: clamp(30px, 5vw, 68px);
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--gold);
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 34px;
+        height: 1px;
+        content: "";
+        background: currentColor;
+        opacity: 0.7;
+      }
+
+      h1 {
+        max-width: 11ch;
+        margin: 26px 0 18px;
+        font-size: clamp(3.5rem, 7vw, 6.4rem);
+        font-weight: 400;
+        line-height: 0.92;
+        letter-spacing: -0.07em;
+      }
+
+      h1 span {
+        display: block;
+        color: var(--rose);
+        font-style: italic;
+      }
+
+      .intro {
+        max-width: 32ch;
+        margin: 0;
+        color: var(--muted);
+        font-family: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+        font-size: 0.98rem;
+        line-height: 1.85;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        margin-top: 34px;
+      }
+
+      .bloom-button {
+        cursor: pointer;
+        padding: 14px 20px;
+        border: 1px solid rgba(255, 221, 209, 0.38);
+        border-radius: 999px;
+        color: #321222;
+        background: linear-gradient(135deg, #f5b9ae, #e78099);
+        box-shadow: 0 8px 22px rgba(216, 77, 114, 0.2);
+        transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+      }
+
+      .bloom-button:hover,
+      .bloom-button:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(216, 77, 114, 0.34);
+        filter: brightness(1.06);
+        outline: none;
+      }
+
+      .bloom-button:active {
+        transform: translateY(0);
+      }
+
+      .hint {
+        color: #bda4b0;
+        font-family: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+        font-size: 0.78rem;
+      }
+
+      .signature {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255, 246, 245, 0.55);
+        font-family: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+        font-size: 0.74rem;
+      }
+
+      .signature b {
+        color: var(--gold);
+        font-size: 1rem;
+        font-weight: 400;
+      }
+
+      .art-panel {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 650px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 43%, rgba(254, 173, 178, 0.18), transparent 11rem),
+          linear-gradient(160deg, rgba(133, 37, 69, 0.42), rgba(35, 19, 38, 0.25));
+      }
+
+      .art-panel::before {
+        position: absolute;
+        top: 13%;
+        left: 50%;
+        width: min(35vw, 310px);
+        aspect-ratio: 1;
+        content: "";
+        border: 1px solid rgba(246, 197, 141, 0.25);
+        border-radius: 50%;
+        box-shadow: 0 0 0 18px rgba(246, 197, 141, 0.025), 0 0 0 44px rgba(246, 197, 141, 0.018);
+        transform: translateX(-50%);
+      }
+
+      .art-label {
+        position: absolute;
+        top: 40px;
+        right: 42px;
+        color: rgba(255, 246, 245, 0.42);
+        font-family: "Trebuchet MS", Arial, sans-serif;
+        font-size: 0.66rem;
+        letter-spacing: 0.2em;
+        writing-mode: vertical-rl;
+      }
+
+      .rose-button {
+        position: relative;
+        z-index: 2;
+        width: 330px;
+        height: 500px;
+        cursor: pointer;
+        border: 0;
+        background: transparent;
+        transform: translateY(10px);
+      }
+
+      .rose-button:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 8px;
+        border-radius: 50%;
+      }
+
+      .rose {
+        position: absolute;
+        inset: 0;
+        transform: translateZ(0);
+        transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .rose-button:hover .rose,
+      .rose-button:focus-visible .rose,
+      .rose-button.is-bloomed .rose {
+        transform: scale(1.04) translateY(-5px);
+      }
+
+      .rose-head {
+        position: absolute;
+        top: 56px;
+        left: 50%;
+        width: 220px;
+        height: 210px;
+        transform: translateX(-50%);
+        filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.2));
+      }
+
+      .petal {
+        position: absolute;
+        left: 50%;
+        bottom: 20px;
+        width: 86px;
+        height: 148px;
+        transform-origin: 50% 92%;
+        border: 1px solid rgba(255, 196, 190, 0.18);
+        border-radius: 55% 45% 48% 52% / 64% 60% 40% 36%;
+        background: radial-gradient(circle at 42% 24%, rgba(255, 229, 213, 0.4), transparent 24%), linear-gradient(145deg, #ed7890 0%, #b82f5b 54%, #701430 100%);
+        box-shadow: inset 7px 0 10px rgba(255, 209, 195, 0.12), inset -9px -11px 14px rgba(78, 8, 30, 0.24), 0 7px 11px rgba(56, 5, 24, 0.14);
+      }
+
+      .petal.back:nth-child(1) { transform: translateX(-50%) rotate(-62deg) translateY(15px) scale(0.88); }
+      .petal.back:nth-child(2) { transform: translateX(-50%) rotate(-42deg) translateY(1px) scale(0.97); }
+      .petal.back:nth-child(3) { transform: translateX(-50%) rotate(-21deg) translateY(-8px); }
+      .petal.back:nth-child(4) { transform: translateX(-50%) rotate(0deg) translateY(-12px) scale(1.02); }
+      .petal.back:nth-child(5) { transform: translateX(-50%) rotate(22deg) translateY(-8px); }
+      .petal.back:nth-child(6) { transform: translateX(-50%) rotate(43deg) translateY(1px) scale(0.97); }
+      .petal.back:nth-child(7) { transform: translateX(-50%) rotate(63deg) translateY(15px) scale(0.88); }
+
+      .petal.mid {
+        bottom: 32px;
+        width: 77px;
+        height: 128px;
+        background: radial-gradient(circle at 35% 18%, rgba(255, 235, 220, 0.46), transparent 25%), linear-gradient(155deg, #f1939b, #cd466b 56%, #8b1a3f);
+      }
+
+      .petal.mid:nth-child(8) { transform: translateX(-50%) rotate(-49deg) translateY(12px) scale(0.9); }
+      .petal.mid:nth-child(9) { transform: translateX(-50%) rotate(-27deg) translateY(1px); }
+      .petal.mid:nth-child(10) { transform: translateX(-50%) rotate(-8deg) translateY(-6px) scale(0.98); }
+      .petal.mid:nth-child(11) { transform: translateX(-50%) rotate(12deg) translateY(-6px) scale(0.98); }
+      .petal.mid:nth-child(12) { transform: translateX(-50%) rotate(31deg) translateY(1px); }
+      .petal.mid:nth-child(13) { transform: translateX(-50%) rotate(50deg) translateY(12px) scale(0.9); }
+
+      .petal.inner {
+        bottom: 47px;
+        width: 63px;
+        height: 108px;
+        background: radial-gradient(circle at 38% 20%, rgba(255, 241, 225, 0.53), transparent 28%), linear-gradient(145deg, #f3a2a2, #d85b76 50%, #9d2148);
+      }
+
+      .petal.inner:nth-child(14) { transform: translateX(-50%) rotate(-36deg) translateY(8px); }
+      .petal.inner:nth-child(15) { transform: translateX(-50%) rotate(-15deg) translateY(-1px); }
+      .petal.inner:nth-child(16) { transform: translateX(-50%) rotate(7deg) translateY(-5px); }
+      .petal.inner:nth-child(17) { transform: translateX(-50%) rotate(28deg) translateY(1px); }
+      .petal.inner:nth-child(18) { transform: translateX(-50%) rotate(47deg) translateY(8px); }
+
+      .rose-center {
+        position: absolute;
+        bottom: 66px;
+        left: 50%;
+        width: 68px;
+        height: 72px;
+        border-radius: 48% 52% 45% 55% / 60% 58% 42% 40%;
+        background: radial-gradient(circle at 35% 20%, #ffd2bd 0 5%, transparent 6%), radial-gradient(circle at 60% 28%, #f3a4a0 0 8%, transparent 9%), linear-gradient(135deg, #f59fa0, #c83d65 58%, #84143a);
+        box-shadow: inset -8px -12px 12px rgba(102, 14, 45, 0.27), 0 7px 10px rgba(70, 4, 29, 0.18);
+        transform: translateX(-50%) rotate(-12deg);
+      }
+
+      .rose-center::before,
+      .rose-center::after {
+        position: absolute;
+        content: "";
+        border: 4px solid rgba(125, 18, 55, 0.55);
+        border-left-color: transparent;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+      }
+
+      .rose-center::before {
+        inset: 14px 10px 20px 17px;
+        transform: rotate(28deg);
+      }
+
+      .rose-center::after {
+        inset: 22px 20px 11px 12px;
+        transform: rotate(165deg);
+      }
+
+      .sepal {
+        position: absolute;
+        top: 209px;
+        left: 50%;
+        z-index: 1;
+        width: 30px;
+        height: 48px;
+        border-radius: 100% 0 100% 0;
+        background: linear-gradient(145deg, #76ae7d, #30634f);
+        transform-origin: 50% 0;
+      }
+
+      .sepal.left { transform: translateX(-24px) rotate(34deg); }
+      .sepal.center { transform: translateX(-50%) rotate(2deg) scale(0.9); }
+      .sepal.right { transform: translateX(-6px) rotate(78deg) scale(0.88); }
+
+      .stem {
+        position: absolute;
+        top: 237px;
+        left: 50%;
+        width: 15px;
+        height: 236px;
+        border-radius: 100% 100% 35% 35%;
+        background: linear-gradient(90deg, #1b4b40, #6eaa78 45%, #2c634d 78%);
+        box-shadow: inset 3px 0 3px rgba(205, 235, 185, 0.18), 8px 0 11px rgba(0, 0, 0, 0.17);
+        transform: translateX(-50%) rotate(3deg);
+      }
+
+      .leaf {
+        position: absolute;
+        z-index: 2;
+        width: 112px;
+        height: 58px;
+        border-radius: 100% 0 100% 0;
+        background: linear-gradient(145deg, #8fc28b 0%, #438062 43%, #1e5044 100%);
+        box-shadow: inset 8px 7px 9px rgba(218, 244, 187, 0.13), 5px 9px 10px rgba(0, 0, 0, 0.14);
+      }
+
+      .leaf::after {
+        position: absolute;
+        top: 50%;
+        left: 8%;
+        width: 84%;
+        height: 1px;
+        content: "";
+        background: rgba(205, 237, 182, 0.42);
+        transform: rotate(-23deg);
+        transform-origin: left center;
+      }
+
+      .leaf.left {
+        top: 333px;
+        left: 30px;
+        transform: rotate(194deg);
+      }
+
+      .leaf.right {
+        top: 377px;
+        right: 18px;
+        transform: rotate(-8deg) scale(0.85);
+      }
+
+      .ground {
+        position: absolute;
+        bottom: 27px;
+        left: 50%;
+        width: 250px;
+        height: 24px;
+        border-radius: 50%;
+        background: rgba(4, 2, 7, 0.35);
+        filter: blur(8px);
+        transform: translateX(-50%);
+      }
+
+      .petal-dust {
+        position: absolute;
+        z-index: 3;
+        width: 6px;
+        height: 6px;
+        border-radius: 50% 0 50% 50%;
+        background: var(--gold);
+        opacity: 0.72;
+        transform: rotate(45deg);
+        animation: drift 5s ease-in-out infinite;
+      }
+
+      .dust-one { top: 165px; left: 44px; animation-delay: -1.7s; }
+      .dust-two { top: 286px; right: 48px; width: 4px; height: 4px; animation-delay: -3.2s; }
+      .dust-three { top: 100px; right: 78px; width: 5px; height: 5px; animation-delay: -0.5s; }
+
+      @keyframes drift {
+        0%, 100% { opacity: 0.15; transform: translate(0, 0) rotate(45deg) scale(0.75); }
+        50% { opacity: 0.8; transform: translate(8px, -16px) rotate(115deg) scale(1); }
+      }
+
+      @keyframes breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.018); }
+      }
+
+      .rose-head { animation: breathe 5s ease-in-out infinite; }
+
+      .is-bloomed .petal.back:nth-child(1) { transform: translateX(-50%) rotate(-72deg) translateY(15px) scale(0.92); }
+      .is-bloomed .petal.back:nth-child(7) { transform: translateX(-50%) rotate(73deg) translateY(15px) scale(0.92); }
+      .is-bloomed .petal.mid:nth-child(8) { transform: translateX(-50%) rotate(-57deg) translateY(12px) scale(0.94); }
+      .is-bloomed .petal.mid:nth-child(13) { transform: translateX(-50%) rotate(58deg) translateY(12px) scale(0.94); }
+
+      .accessibility-note {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          padding: 14px;
+        }
+
+        .card {
+          display: block;
+          min-height: auto;
+          border-radius: 22px;
+        }
+
+        .copy {
+          min-height: 450px;
+          padding: 38px 30px 34px;
+        }
+
+        h1 {
+          max-width: 8ch;
+          margin-top: 20px;
+          font-size: clamp(3.4rem, 16vw, 5rem);
+        }
+
+        .art-panel {
+          min-height: 570px;
+        }
+
+        .art-panel::before {
+          width: 280px;
+        }
+
+        .art-label {
+          top: 28px;
+          right: 24px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="card" aria-label="玫瑰花绘画作品">
+        <div class="copy">
+          <div>
+            <div class="eyebrow">A little rose</div>
+            <h1>给你一朵<span>玫瑰</span></h1>
+            <p class="intro">不需要泥土和花瓶，只用一点颜色、几片叶子，还有一段温柔的光。</p>
+            <div class="actions">
+              <button class="bloom-button" id="bloomButton" type="button">让它绽放</button>
+              <span class="hint">点击右侧花朵也可以</span>
+            </div>
+          </div>
+          <div class="signature"><b>✦</b><span>纯 CSS 绘制 · 无外部资源 · 打开即见</span></div>
+        </div>
+
+        <div class="art-panel">
+          <span class="art-label">BOTANICAL STUDY · 01</span>
+          <span class="petal-dust dust-one" aria-hidden="true"></span>
+          <span class="petal-dust dust-two" aria-hidden="true"></span>
+          <span class="petal-dust dust-three" aria-hidden="true"></span>
+          <button class="rose-button" id="roseButton" type="button" aria-label="让玫瑰绽放" aria-pressed="false">
+            <span class="rose" aria-hidden="true">
+              <span class="rose-head">
+                <span class="petal back"></span><span class="petal back"></span><span class="petal back"></span><span class="petal back"></span><span class="petal back"></span><span class="petal back"></span><span class="petal back"></span>
+                <span class="petal mid"></span><span class="petal mid"></span><span class="petal mid"></span><span class="petal mid"></span><span class="petal mid"></span><span class="petal mid"></span>
+                <span class="petal inner"></span><span class="petal inner"></span><span class="petal inner"></span><span class="petal inner"></span><span class="petal inner"></span>
+                <span class="rose-center"></span>
+              </span>
+              <span class="sepal left"></span><span class="sepal center"></span><span class="sepal right"></span>
+              <span class="stem"></span>
+              <span class="leaf left"></span><span class="leaf right"></span>
+              <span class="ground"></span>
+            </span>
+          </button>
+          <p class="accessibility-note" id="status" aria-live="polite">玫瑰含苞待放</p>
+        </div>
+      </section>
+    </main>
+    <script>
+      const roseButton = document.getElementById("roseButton");
+      const bloomButton = document.getElementById("bloomButton");
+      const status = document.getElementById("status");
+
+      function toggleBloom() {
+        const bloomed = roseButton.classList.toggle("is-bloomed");
+        roseButton.setAttribute("aria-pressed", String(bloomed));
+        bloomButton.textContent = bloomed ? "收起花瓣" : "让它绽放";
+        status.textContent = bloomed ? "玫瑰正在绽放" : "玫瑰含苞待放";
+      }
+
+      roseButton.addEventListener("click", toggleBloom);
+      bloomButton.addEventListener("click", toggleBloom);
+    </script>
+  </body>
+</html>
