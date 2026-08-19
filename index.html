@@ -3,12 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#fffaf6" />
-    <title>给你一朵玫瑰</title>
+    <meta name="theme-color" content="#180a10" />
+    <title>一支玫瑰 · For You</title>
     <style>
       :root {
-        color-scheme: light;
-        background: #fffaf6;
+        color-scheme: dark;
+        --bg-0: #180a10;
+        --bg-1: #2a0f1a;
+        --bg-2: #3d1422;
+        --ink: #f6e7ea;
+        --ink-dim: rgba(246, 231, 234, 0.6);
+        --accent: #f0b6c4;
+        --accent-soft: rgba(240, 182, 196, 0.4);
       }
 
       * {
@@ -19,439 +25,552 @@
       body {
         width: 100%;
         height: 100%;
-        min-height: 100%;
         margin: 0;
-        overflow: hidden;
-        background: #fffaf6;
       }
 
       body {
         min-height: 100dvh;
-      }
-
-      .stage {
-        width: 100%;
-        height: 100%;
-        min-height: 100dvh;
         overflow: hidden;
+        font-family: "Georgia", "Songti SC", "STSong", "Noto Serif SC", "SimSun", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(130% 95% at 50% 18%, var(--bg-2) 0%, var(--bg-1) 46%, var(--bg-0) 100%);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
       }
 
-      canvas {
-        display: block;
+      #scene {
+        position: fixed;
+        inset: 0;
         width: 100%;
         height: 100%;
-        outline: none;
+        display: block;
         touch-action: none;
+      }
+
+      .vignette {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        background: radial-gradient(125% 125% at 50% 42%, transparent 52%, rgba(8, 3, 6, 0.6) 100%);
+      }
+
+      .grain {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 6;
+        opacity: 0.05;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+
+      .ui {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: clamp(26px, 6vh, 60px);
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.5em;
+        text-transform: uppercase;
+        color: var(--accent-soft);
+      }
+
+      .title {
+        margin: 0;
+        font-size: clamp(30px, 6.5vw, 46px);
+        font-weight: 400;
+        letter-spacing: 0.16em;
+        text-shadow: 0 2px 34px rgba(0, 0, 0, 0.55);
+      }
+
+      .subtitle {
+        margin: 0;
+        font-size: clamp(12px, 1.8vw, 15px);
+        letter-spacing: 0.18em;
+        color: var(--ink-dim);
+      }
+
+      .ui-hint {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: clamp(22px, 4.5vh, 42px);
+        z-index: 10;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 14px;
+        pointer-events: none;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        color: var(--ink-dim);
+      }
+
+      .ui-hint i {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+      }
+
+      .ui,
+      .ui-hint {
+        animation: fadeIn 1.6s ease 0.2s both;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .fallback {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 24px;
+        color: var(--ink-dim);
+        letter-spacing: 0.08em;
+        background: var(--bg-0);
       }
     </style>
   </head>
   <body>
-    <main class="stage" aria-label="一朵正在被画出的玫瑰">
-      <canvas id="roseCanvas" role="img" aria-label="从枝干、叶子到花瓣逐步绘制的玫瑰"></canvas>
-    </main>
+    <canvas id="scene" role="img" aria-label="一支由三维花瓣层层绽放的玫瑰"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
 
-    <script>
-      (() => {
-        const canvas = document.getElementById("roseCanvas");
-        const ctx = canvas.getContext("2d");
-        const DESIGN_WIDTH = 390;
-        const DESIGN_HEIGHT = 844;
-        const palette = {
-          stemDark: "#1e6642",
-          stem: "#358a56",
-          stemLight: "#8acb83",
-          leafDark: "#2d7549",
-          leaf: "#4c9d61",
-          leafLight: "#8dcc85",
-          petalDeep: "#a5264d",
-          petalOuter: "#d63b67",
-          petal: "#e95378",
-          petalLight: "#f7829c",
-          petalPale: "#f9aab8",
-          ink: "#8e2149",
-          vein: "#bd3f61",
-          core: "#a92652",
-          center: "#76183e",
-          paper: "#fffaf6",
-          paperGlow: "#fcecef"
-        };
+    <header class="ui">
+      <div class="eyebrow">For You</div>
+      <h1 class="title">一支玫瑰</h1>
+      <p class="subtitle">层层花瓣，只为献给特别的你</p>
+    </header>
 
-        let viewportWidth = 0;
-        let viewportHeight = 0;
-        let pixelRatio = 1;
-        let elapsed = 0;
-        const startedAt = performance.now();
+    <footer class="ui-hint" aria-hidden="true">
+      <span>拖动旋转</span>
+      <i></i>
+      <span>滚轮缩放</span>
+    </footer>
 
-        function clamp(value, min = 0, max = 1) {
-          return Math.max(min, Math.min(max, value));
+    <div class="fallback" id="fallback" hidden>
+      <div>当前浏览器不支持 WebGL，无法渲染这朵玫瑰。<br />请更换现代浏览器后重试。</div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      const canvas = document.getElementById("scene");
+      const fallback = document.getElementById("fallback");
+
+      let renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      } catch (error) {
+        fallback.hidden = false;
+        throw error;
+      }
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+      camera.position.set(0, 0.65, 7.4);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0.25, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.enablePan = false;
+      controls.minDistance = 3.4;
+      controls.maxDistance = 12;
+      controls.minPolarAngle = 0.35;
+      controls.maxPolarAngle = Math.PI * 0.86;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.7;
+
+      // ---- lights ----
+      scene.add(new THREE.AmbientLight(0xffe0e6, 0.6));
+
+      const key = new THREE.DirectionalLight(0xfff1ea, 2.4);
+      key.position.set(4, 5, 5);
+      scene.add(key);
+
+      const rim = new THREE.DirectionalLight(0x8fb8ff, 1.5);
+      rim.position.set(-5, 2, -4);
+      scene.add(rim);
+
+      const fill = new THREE.PointLight(0xffb3c6, 14, 0, 2);
+      fill.position.set(-2, 1, 4);
+      scene.add(fill);
+
+      // ---- helpers ----
+      function makeRadialTexture(inner, outer, size = 256) {
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        const ctx = c.getContext("2d");
+        const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        g.addColorStop(0, inner);
+        g.addColorStop(1, outer);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, size, size);
+        return new THREE.CanvasTexture(c);
+      }
+
+      function buildPetalGeometry({ length, width, curl, cup, fold, baseColor, tipColor, uSteps = 26, vSteps = 18 }) {
+        const rows = uSteps + 1;
+        const cols = vSteps + 1;
+        const positions = new Float32Array(rows * cols * 3);
+        const colors = new Float32Array(rows * cols * 3);
+        const indices = [];
+
+        const cBase = new THREE.Color(baseColor);
+        const cTip = new THREE.Color(tipColor);
+        const tmp = new THREE.Color();
+
+        let vi = 0;
+        for (let i = 0; i <= uSteps; i += 1) {
+          const u = i / uSteps;
+          const w = width * Math.pow(Math.sin(Math.PI * u), 0.85);
+          const z = u * length;
+          const yCurl = curl * Math.pow(u, 2.4);
+          const crease = Math.pow(Math.sin(Math.PI * u), 1.35);
+
+          for (let j = 0; j <= vSteps; j += 1) {
+            const s = (j / vSteps) * 2 - 1;
+            const x = s * w;
+            const y = yCurl + cup * s * s - fold * crease * (1 - s * s);
+
+            positions[vi * 3] = x;
+            positions[vi * 3 + 1] = y;
+            positions[vi * 3 + 2] = z;
+
+            tmp.copy(cBase).lerp(cTip, Math.pow(u, 0.75));
+            const edge = 1 + 0.26 * Math.abs(s);
+            const shade = 0.8 + 0.2 * u;
+            colors[vi * 3] = Math.min(1, tmp.r * edge * shade);
+            colors[vi * 3 + 1] = Math.min(1, tmp.g * edge * shade);
+            colors[vi * 3 + 2] = Math.min(1, tmp.b * edge * shade);
+            vi += 1;
+          }
         }
 
-        function ease(value) {
-          const t = clamp(value);
-          return 1 - Math.pow(1 - t, 3);
+        for (let i = 0; i < uSteps; i += 1) {
+          for (let j = 0; j < vSteps; j += 1) {
+            const a = i * cols + j;
+            const b = a + 1;
+            const c = a + cols;
+            const d = c + 1;
+            indices.push(a, c, b, b, c, d);
+          }
         }
 
-        function cubicPoint(a, b, c, d, t) {
-          const inverse = 1 - t;
-          return [
-            inverse * inverse * inverse * a[0] +
-              3 * inverse * inverse * t * b[0] +
-              3 * inverse * t * t * c[0] +
-              t * t * t * d[0],
-            inverse * inverse * inverse * a[1] +
-              3 * inverse * inverse * t * b[1] +
-              3 * inverse * t * t * c[1] +
-              t * t * t * d[1]
-          ];
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      function buildLeafGeometry(length, width, baseColor, tipColor) {
+        const uSteps = 20;
+        const vSteps = 10;
+        const rows = uSteps + 1;
+        const cols = vSteps + 1;
+        const positions = new Float32Array(rows * cols * 3);
+        const colors = new Float32Array(rows * cols * 3);
+        const indices = [];
+
+        const cBase = new THREE.Color(baseColor);
+        const cTip = new THREE.Color(tipColor);
+        const tmp = new THREE.Color();
+
+        let vi = 0;
+        for (let i = 0; i <= uSteps; i += 1) {
+          const u = i / uSteps;
+          const y = u * length;
+          const w = width * Math.pow(Math.sin(Math.PI * u), 0.9);
+          const fold = 0.16 * Math.pow(Math.sin(Math.PI * u), 1.2);
+
+          for (let j = 0; j <= vSteps; j += 1) {
+            const s = (j / vSteps) * 2 - 1;
+            const x = s * w;
+            const z = -fold * (1 - s * s) + 0.04 * u * u;
+            positions[vi * 3] = x;
+            positions[vi * 3 + 1] = y;
+            positions[vi * 3 + 2] = z;
+
+            tmp.copy(cBase).lerp(cTip, u);
+            const edge = 1 + 0.16 * Math.abs(s);
+            colors[vi * 3] = Math.min(1, tmp.r * edge);
+            colors[vi * 3 + 1] = Math.min(1, tmp.g * edge);
+            colors[vi * 3 + 2] = Math.min(1, tmp.b * edge);
+            vi += 1;
+          }
         }
 
-        function makePath(start, curves, closed = true) {
-          const points = [start];
-          let current = start;
+        for (let i = 0; i < uSteps; i += 1) {
+          for (let j = 0; j < vSteps; j += 1) {
+            const a = i * cols + j;
+            const b = a + 1;
+            const c = a + cols;
+            const d = c + 1;
+            indices.push(a, c, b, b, c, d);
+          }
+        }
 
-          curves.forEach((curve) => {
-            const controlOne = curve[0];
-            const controlTwo = curve[1];
-            const end = curve[2];
-            for (let index = 1; index <= 28; index += 1) {
-              points.push(cubicPoint(current, controlOne, controlTwo, end, index / 28));
-            }
-            current = end;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      // ---- materials ----
+      const petalMaterial = new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: 0.52,
+        metalness: 0,
+        clearcoat: 0.22,
+        clearcoatRoughness: 0.4,
+        sheen: 0.45,
+        sheenColor: new THREE.Color(0xffc2d2),
+        side: THREE.DoubleSide
+      });
+
+      const leafMaterial = new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: 0.5,
+        metalness: 0,
+        clearcoat: 0.12,
+        side: THREE.DoubleSide
+      });
+
+      const stemMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x3a7d44,
+        roughness: 0.55,
+        metalness: 0,
+        clearcoat: 0.08
+      });
+
+      const thornMaterial = new THREE.MeshStandardMaterial({
+        color: 0x7a3b32,
+        roughness: 0.6
+      });
+
+      // ---- rose ----
+      const roseGroup = new THREE.Group();
+      roseGroup.scale.setScalar(0.92);
+      scene.add(roseGroup);
+
+      const flowerGroup = new THREE.Group();
+      roseGroup.add(flowerGroup);
+
+      const stemCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.25, 0),
+        new THREE.Vector3(0.07, -1.15, 0.05),
+        new THREE.Vector3(-0.06, -2.4, -0.04),
+        new THREE.Vector3(0.03, -3.45, 0.02)
+      ]);
+
+      const stem = new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 64, 0.075, 14, false), stemMaterial);
+      roseGroup.add(stem);
+
+      function addThorn(t) {
+        const p = stemCurve.getPointAt(t);
+        const tangent = stemCurve.getTangentAt(t);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.16, 8), thornMaterial);
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+        cone.quaternion.copy(quat);
+        cone.position.copy(p).addScaledVector(tangent, 0.02);
+        roseGroup.add(cone);
+      }
+      [0.24, 0.46, 0.68].forEach(addThorn);
+
+      function addLeaf(t, yaw, lean, length, width) {
+        const leaf = new THREE.Mesh(buildLeafGeometry(length, width, 0x2e5d3a, 0x57a55f), leafMaterial);
+        leaf.position.copy(stemCurve.getPointAt(t));
+        leaf.rotation.order = "YXZ";
+        leaf.rotation.y = yaw;
+        leaf.rotation.x = -lean;
+        roseGroup.add(leaf);
+      }
+      addLeaf(0.34, 0.65, 0.75, 1.25, 0.42);
+      addLeaf(0.56, -0.7, 0.85, 1.1, 0.38);
+      addLeaf(0.2, 1.15, 0.6, 0.95, 0.34);
+
+      for (let k = 0; k < 5; k += 1) {
+        const geo = buildPetalGeometry({
+          length: 0.6,
+          width: 0.22,
+          curl: -0.12,
+          cup: 0.06,
+          fold: 0.08,
+          baseColor: 0x2e5d3a,
+          tipColor: 0x4e9459
+        });
+        const sepal = new THREE.Mesh(geo, leafMaterial);
+        const group = new THREE.Group();
+        group.add(sepal);
+        group.rotation.y = (k / 5) * Math.PI * 2 + 0.25;
+        sepal.position.set(0, 0.08, 0.2);
+        sepal.rotation.x = 0.72;
+        roseGroup.add(group);
+      }
+
+      const layers = [
+        { count: 10, baseR: 0.55, tilt: 0.3, length: 1.55, width: 0.85, curl: 0.34, cup: 0.3, fold: 0.1, y: -0.02, c0: 0x7a1030, c1: 0xbf1740 },
+        { count: 9, baseR: 0.44, tilt: 0.48, length: 1.4, width: 0.78, curl: 0.22, cup: 0.34, fold: 0.12, y: 0.05, c0: 0x8c1436, c1: 0xcd1d48 },
+        { count: 8, baseR: 0.34, tilt: 0.68, length: 1.25, width: 0.7, curl: 0.12, cup: 0.38, fold: 0.14, y: 0.14, c0: 0x9c183c, c1: 0xdd2450 },
+        { count: 7, baseR: 0.25, tilt: 0.88, length: 1.08, width: 0.6, curl: 0.05, cup: 0.4, fold: 0.15, y: 0.24, c0: 0xa91c42, c1: 0xe82b58 },
+        { count: 6, baseR: 0.17, tilt: 1.06, length: 0.9, width: 0.5, curl: 0, cup: 0.38, fold: 0.14, y: 0.33, c0: 0xb6204a, c1: 0xf03460 },
+        { count: 5, baseR: 0.1, tilt: 1.24, length: 0.7, width: 0.42, curl: 0, cup: 0.32, fold: 0.12, y: 0.42, c0: 0xc02650, c1: 0xf64368 },
+        { count: 5, baseR: 0.03, tilt: 1.42, length: 0.48, width: 0.34, curl: 0, cup: 0.24, fold: 0.08, y: 0.5, c0: 0xc92a55, c1: 0xf94d72 }
+      ];
+
+      const closedTilt = 1.5;
+      const petals = [];
+
+      layers.forEach((layer, li) => {
+        const offset = (li % 2) * (Math.PI / layer.count) * 0.5 + Math.random() * 0.2;
+        for (let i = 0; i < layer.count; i += 1) {
+          const jl = 1 + (Math.random() - 0.5) * 0.08;
+          const jw = 1 + (Math.random() - 0.5) * 0.1;
+          const geo = buildPetalGeometry({
+            length: layer.length * jl,
+            width: layer.width * jw,
+            curl: layer.curl,
+            cup: layer.cup,
+            fold: layer.fold,
+            baseColor: layer.c0,
+            tipColor: layer.c1
           });
-
-          if (closed) {
-            points.push(start);
-          }
-
-          return points;
+          const mesh = new THREE.Mesh(geo, petalMaterial);
+          const group = new THREE.Group();
+          group.add(mesh);
+          petals.push({
+            group,
+            mesh,
+            theta: (i / layer.count) * Math.PI * 2 + offset,
+            finalTilt: layer.tilt * (1 + (Math.random() - 0.5) * 0.1),
+            finalBaseR: layer.baseR * (1 + (Math.random() - 0.5) * 0.15),
+            y: layer.y
+          });
+          flowerGroup.add(group);
         }
+      });
 
-        function ellipse(cx, cy, radiusX, radiusY, rotation = 0, steps = 64) {
-          const points = [];
-          const cosine = Math.cos(rotation);
-          const sine = Math.sin(rotation);
+      function updateBloom(openness) {
+        petals.forEach((p) => {
+          p.group.rotation.y = p.theta;
+          p.mesh.position.set(0, 0, p.finalBaseR * (0.25 + 0.75 * openness));
+          p.mesh.rotation.x = -(closedTilt + (p.finalTilt - closedTilt) * openness);
+          p.group.position.y = p.y * openness;
+        });
+      }
 
-          for (let index = 0; index <= steps; index += 1) {
-            const angle = (Math.PI * 2 * index) / steps;
-            const x = Math.cos(angle) * radiusX;
-            const y = Math.sin(angle) * radiusY;
-            points.push([
-              cx + x * cosine - y * sine,
-              cy + x * sine + y * cosine
-            ]);
-          }
+      // ---- atmosphere ----
+      const glowTex = makeRadialTexture("rgba(255, 176, 190, 0.6)", "rgba(255, 176, 190, 0)");
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: glowTex,
+        color: 0xffb3c6,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
+      glow.scale.set(9.5, 9.5, 1);
+      glow.position.set(0, 0.4, -2.2);
+      scene.add(glow);
 
-          return points;
-        }
+      const dotTex = makeRadialTexture("rgba(255, 255, 255, 1)", "rgba(255, 255, 255, 0)");
+      const particleCount = 64;
+      const particlePositions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i += 1) {
+        particlePositions[i * 3] = (Math.random() - 0.5) * 15;
+        particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 9;
+        particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 6 - 1;
+      }
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+      const particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({
+        map: dotTex,
+        color: 0xf6cdd6,
+        size: 0.17,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
+      scene.add(particles);
 
-        function line(start, curves) {
-          return makePath(start, curves, false);
-        }
+      // ---- animation ----
+      const clock = new THREE.Clock();
+      const BLOOM_START = 0.35;
+      const BLOOM_DUR = 2.8;
 
-        function fillPath(points) {
-          ctx.beginPath();
-          ctx.moveTo(points[0][0], points[0][1]);
-          for (let index = 1; index < points.length; index += 1) {
-            ctx.lineTo(points[index][0], points[index][1]);
-          }
-          ctx.closePath();
-          ctx.fill();
-        }
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
 
-        function tracePath(points, progress) {
-          const finalIndex = (points.length - 1) * clamp(progress);
-          const wholeIndex = Math.floor(finalIndex);
-          const fraction = finalIndex - wholeIndex;
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const t = clock.elapsedTime;
 
-          ctx.beginPath();
-          ctx.moveTo(points[0][0], points[0][1]);
+        const raw = THREE.MathUtils.clamp((t - BLOOM_START) / BLOOM_DUR, 0, 1);
+        updateBloom(easeOutCubic(raw));
 
-          for (let index = 1; index <= wholeIndex; index += 1) {
-            ctx.lineTo(points[index][0], points[index][1]);
-          }
+        flowerGroup.rotation.x = Math.sin(t * 0.6) * 0.03;
+        flowerGroup.rotation.z = Math.cos(t * 0.45) * 0.04;
+        particles.rotation.y += dt * 0.02;
 
-          if (wholeIndex < points.length - 1) {
-            const from = points[wholeIndex];
-            const to = points[wholeIndex + 1];
-            ctx.lineTo(
-              from[0] + (to[0] - from[0]) * fraction,
-              from[1] + (to[1] - from[1]) * fraction
-            );
-          }
+        controls.update();
+        renderer.render(scene, camera);
+      }
 
-          ctx.stroke();
-        }
+      function resize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h, false);
+      }
 
-        function drawTask(task, time) {
-          const rawProgress = clamp((time - task.start) / task.duration);
-          if (rawProgress <= 0) {
-            return;
-          }
-
-          const progress = ease(rawProgress);
-          ctx.save();
-          ctx.lineCap = task.lineCap || "round";
-          ctx.lineJoin = "round";
-          ctx.lineWidth = task.lineWidth || 2;
-
-          if (task.fill) {
-            const fillStart = task.fillStart === undefined ? 0.58 : task.fillStart;
-            const fillProgress = clamp((progress - fillStart) / (1 - fillStart));
-            if (fillProgress > 0) {
-              ctx.globalAlpha = fillProgress;
-              ctx.fillStyle = task.fill;
-              fillPath(task.points);
-            }
-          }
-
-          ctx.globalAlpha = task.alpha === undefined ? 1 : task.alpha;
-          ctx.strokeStyle = task.stroke;
-          tracePath(task.points, progress);
-          ctx.restore();
-        }
-
-        function drawBackground() {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = palette.paper;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          const glow = ctx.createRadialGradient(
-            viewportWidth * 0.5 * pixelRatio,
-            viewportHeight * 0.36 * pixelRatio,
-            0,
-            viewportWidth * 0.5 * pixelRatio,
-            viewportHeight * 0.36 * pixelRatio,
-            viewportWidth * 0.58 * pixelRatio
-          );
-          glow.addColorStop(0, palette.paperGlow);
-          glow.addColorStop(1, "rgba(255, 250, 246, 0)");
-          ctx.fillStyle = glow;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function drawScene(time) {
-          drawBackground();
-
-          const scale = Math.min(
-            viewportWidth / DESIGN_WIDTH,
-            viewportHeight / DESIGN_HEIGHT
-          );
-          const offsetX = (viewportWidth - DESIGN_WIDTH * scale) / 2;
-          const offsetY = (viewportHeight - DESIGN_HEIGHT * scale) / 2;
-          ctx.setTransform(
-            pixelRatio * scale,
-            0,
-            0,
-            pixelRatio * scale,
-            pixelRatio * offsetX,
-            pixelRatio * offsetY
-          );
-
-          tasks.forEach((task) => drawTask(task, time));
-        }
-
-        function resize() {
-          viewportWidth = window.innerWidth;
-          viewportHeight = window.innerHeight;
-          pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-          canvas.width = Math.max(1, Math.round(viewportWidth * pixelRatio));
-          canvas.height = Math.max(1, Math.round(viewportHeight * pixelRatio));
-          canvas.style.width = viewportWidth + "px";
-          canvas.style.height = viewportHeight + "px";
-          drawScene(elapsed);
-        }
-
-        const stem = line([194, 776], [
-          [[188, 680], [197, 500], [195, 365]]
-        ]);
-        const stemHighlight = line([192, 770], [
-          [[190, 660], [198, 500], [197, 382]]
-        ]);
-
-        const leftLeaf = makePath([194, 575], [
-          [[163, 546], [111, 532], [72, 555]],
-          [[91, 591], [145, 607], [194, 579]]
-        ]);
-        const rightLeaf = makePath([197, 679], [
-          [[230, 649], [282, 622], [320, 641]],
-          [[299, 680], [246, 704], [197, 684]]
-        ]);
-        const smallLeaf = makePath([196, 468], [
-          [[177, 447], [148, 438], [125, 449]],
-          [[142, 476], [169, 485], [196, 472]]
-        ]);
-
-        const sepalLeft = makePath([194, 354], [
-          [[166, 351], [139, 365], [115, 389]],
-          [[145, 393], [172, 382], [194, 364]]
-        ]);
-        const sepalCenter = makePath([194, 357], [
-          [[183, 376], [184, 395], [195, 413]],
-          [[207, 394], [208, 376], [195, 357]]
-        ]);
-        const sepalRight = makePath([196, 356], [
-          [[224, 351], [251, 364], [275, 389]],
-          [[245, 394], [218, 382], [196, 364]]
-        ]);
-
-        const backTop = makePath([195, 229], [
-          [[159, 206], [141, 171], [151, 138]],
-          [[161, 106], [191, 92], [216, 114]],
-          [[241, 138], [231, 181], [195, 229]]
-        ]);
-        const backLeft = makePath([195, 263], [
-          [[164, 237], [122, 230], [94, 253]],
-          [[74, 232], [83, 188], [112, 174]],
-          [[141, 160], [174, 178], [195, 205]],
-          [[210, 225], [209, 249], [195, 263]]
-        ]);
-        const backRight = makePath([195, 263], [
-          [[226, 237], [268, 230], [296, 253]],
-          [[316, 232], [307, 188], [278, 174]],
-          [[249, 160], [216, 178], [195, 205]],
-          [[180, 225], [181, 249], [195, 263]]
-        ]);
-        const outerLeft = makePath([105, 246], [
-          [[78, 268], [84, 311], [117, 335]],
-          [[145, 355], [174, 348], [195, 326]],
-          [[164, 321], [132, 296], [105, 246]]
-        ]);
-        const outerRight = makePath([285, 246], [
-          [[312, 268], [306, 311], [273, 335]],
-          [[245, 355], [216, 348], [195, 326]],
-          [[226, 321], [258, 296], [285, 246]]
-        ]);
-        const outerBottom = makePath([91, 253], [
-          [[94, 310], [133, 362], [194, 384]],
-          [[252, 363], [291, 310], [299, 253]],
-          [[269, 282], [232, 302], [194, 307]],
-          [[155, 302], [119, 281], [91, 253]]
-        ]);
-
-        const middleLeft = makePath([195, 278], [
-          [[165, 294], [131, 282], [117, 255]],
-          [[104, 229], [115, 198], [140, 186]],
-          [[164, 174], [189, 188], [199, 211]],
-          [[177, 218], [163, 232], [166, 249]],
-          [[169, 263], [183, 273], [195, 278]]
-        ]);
-        const middleRight = makePath([195, 278], [
-          [[225, 294], [259, 282], [273, 255]],
-          [[286, 229], [275, 198], [250, 186]],
-          [[226, 174], [201, 188], [191, 211]],
-          [[213, 218], [227, 232], [224, 249]],
-          [[221, 263], [207, 273], [195, 278]]
-        ]);
-        const middleBottom = makePath([117, 266], [
-          [[124, 315], [163, 345], [201, 347]],
-          [[239, 343], [273, 313], [278, 266]],
-          [[251, 285], [231, 299], [201, 302]],
-          [[169, 304], [144, 289], [117, 266]]
-        ]);
-
-        const innerLeft = makePath([199, 266], [
-          [[178, 278], [153, 262], [151, 239]],
-          [[149, 218], [168, 201], [188, 207]],
-          [[204, 212], [212, 225], [210, 240]],
-          [[208, 252], [204, 261], [199, 266]]
-        ]);
-        const innerRight = makePath([191, 266], [
-          [[212, 278], [237, 262], [239, 239]],
-          [[241, 218], [222, 201], [202, 207]],
-          [[186, 212], [178, 225], [180, 240]],
-          [[182, 252], [186, 261], [191, 266]]
-        ]);
-        const innerTop = makePath([195, 258], [
-          [[177, 244], [174, 221], [188, 210]],
-          [[201, 199], [222, 207], [224, 226]],
-          [[226, 244], [211, 258], [195, 258]]
-        ]);
-        const centerPetal = makePath([195, 276], [
-          [[177, 269], [169, 250], [180, 238]],
-          [[190, 227], [209, 228], [217, 242]],
-          [[226, 258], [214, 274], [195, 276]]
-        ]);
-
-        const veins = [
-          line([105, 247], [
-            [[119, 270], [144, 288], [173, 297]]
-          ]),
-          line([285, 247], [
-            [[271, 270], [246, 288], [217, 297]]
-          ]),
-          line([151, 141], [
-            [[168, 158], [181, 176], [190, 198]]
-          ]),
-          line([239, 141], [
-            [[222, 158], [209, 176], [200, 198]]
-          ]),
-          line([126, 210], [
-            [[148, 215], [163, 225], [174, 242]]
-          ]),
-          line([264, 210], [
-            [[242, 215], [227, 225], [216, 242]]
-          ]),
-          line([140, 315], [
-            [[158, 329], [178, 335], [194, 337]]
-          ]),
-          line([250, 315], [
-            [[232, 329], [212, 335], [196, 337]]
-          ])
-        ];
-
-        const spiral = line([195, 272], [
-          [[174, 270], [166, 251], [180, 239]],
-          [[195, 226], [222, 237], [218, 256]],
-          [[215, 274], [194, 284], [184, 273]],
-          [[177, 265], [181, 253], [191, 250]]
-        ]);
-
-        const tasks = [
-          { start: 0.0, duration: 1.35, points: stem, stroke: palette.stemDark, lineWidth: 18 },
-          { start: 0.45, duration: 1.1, points: stemHighlight, stroke: palette.stemLight, lineWidth: 5, alpha: 0.8 },
-          { start: 0.95, duration: 0.95, points: leftLeaf, stroke: palette.leafDark, fill: palette.leaf, lineWidth: 3 },
-          { start: 1.35, duration: 0.95, points: rightLeaf, stroke: palette.leafDark, fill: palette.leaf, lineWidth: 3 },
-          { start: 1.7, duration: 0.8, points: smallLeaf, stroke: palette.leafDark, fill: palette.leafLight, lineWidth: 3 },
-          { start: 2.15, duration: 0.75, points: sepalLeft, stroke: palette.leafDark, fill: palette.leaf, lineWidth: 3 },
-          { start: 2.3, duration: 0.75, points: sepalCenter, stroke: palette.leafDark, fill: palette.leafLight, lineWidth: 3 },
-          { start: 2.45, duration: 0.75, points: sepalRight, stroke: palette.leafDark, fill: palette.leaf, lineWidth: 3 },
-          { start: 2.3, duration: 1.0, points: backTop, stroke: palette.ink, fill: palette.petalLight, lineWidth: 3 },
-          { start: 2.65, duration: 1.0, points: backLeft, stroke: palette.ink, fill: palette.petal, lineWidth: 3 },
-          { start: 2.85, duration: 1.0, points: backRight, stroke: palette.ink, fill: palette.petal, lineWidth: 3 },
-          { start: 3.2, duration: 0.95, points: outerLeft, stroke: palette.ink, fill: palette.petalOuter, lineWidth: 3 },
-          { start: 3.35, duration: 0.95, points: outerRight, stroke: palette.ink, fill: palette.petalOuter, lineWidth: 3 },
-          { start: 3.55, duration: 1.0, points: outerBottom, stroke: palette.ink, fill: palette.petalDeep, lineWidth: 3 },
-          { start: 4.0, duration: 0.95, points: middleLeft, stroke: palette.ink, fill: palette.petalLight, lineWidth: 3 },
-          { start: 4.15, duration: 0.95, points: middleRight, stroke: palette.ink, fill: palette.petalLight, lineWidth: 3 },
-          { start: 4.35, duration: 0.95, points: middleBottom, stroke: palette.ink, fill: palette.petal, lineWidth: 3 },
-          { start: 4.75, duration: 0.85, points: innerLeft, stroke: palette.ink, fill: palette.petalPale, lineWidth: 3 },
-          { start: 4.9, duration: 0.85, points: innerRight, stroke: palette.ink, fill: palette.petalPale, lineWidth: 3 },
-          { start: 5.1, duration: 0.85, points: innerTop, stroke: palette.ink, fill: palette.petalLight, lineWidth: 3 },
-          { start: 5.35, duration: 0.8, points: centerPetal, stroke: palette.ink, fill: palette.core, lineWidth: 3 },
-          ...veins.map((points, index) => ({
-            start: 5.85 + index * 0.12,
-            duration: 0.6,
-            points,
-            stroke: palette.vein,
-            lineWidth: 2,
-            alpha: 0.75
-          })),
-          { start: 6.75, duration: 1.25, points: spiral, stroke: palette.center, lineWidth: 5 }
-        ];
-
-        function animate(now) {
-          elapsed = (now - startedAt) / 1000;
-          drawScene(elapsed);
-          if (elapsed < 8.5) {
-            window.requestAnimationFrame(animate);
-          }
-        }
-
-        window.addEventListener("resize", resize, { passive: true });
-        resize();
-        window.requestAnimationFrame(animate);
-      })();
+      window.addEventListener("resize", resize, { passive: true });
+      resize();
+      animate();
     </script>
   </body>
 </html>
